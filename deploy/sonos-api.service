@@ -1,0 +1,28 @@
+[Unit]
+Description=Sonos HTTP API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/sonos-api
+Environment=PATH=/home/pi/sonos-api/.venv/bin:/usr/bin:/bin
+ExecStart=/home/pi/sonos-api/.venv/bin/uvicorn sonos_api.main:app \
+    --host 0.0.0.0 \
+    --port 5005 \
+    --limit-max-requests 10000
+Restart=always
+RestartSec=5
+WatchdogSec=60
+MemoryMax=256M
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/sonos-api/static
+
+[Install]
+WantedBy=multi-user.target
