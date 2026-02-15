@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 import structlog
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from soco.exceptions import SoCoException
 
@@ -79,6 +79,11 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/docs")
+
 
 # Serve TTS audio files
 import os
