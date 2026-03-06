@@ -19,18 +19,30 @@ class PlayerState(BaseModel):
     track: TrackInfo = TrackInfo()
 
 
+class GroupState(BaseModel):
+    volume: int
+    mute: bool
+
+
+class MemberState(BaseModel):
+    volume: int
+    mute: bool
+    playbackState: str
+    currentTrack: TrackInfo = TrackInfo()
+
+
 class MemberInfo(BaseModel):
-    room: str
     uuid: str
+    roomName: str
+    coordinator: str  # coordinator uuid
+    state: MemberState
+    groupState: GroupState
 
 
 class ZoneInfo(BaseModel):
-    coordinator: str
     uuid: str
+    coordinator: MemberInfo
     members: list[MemberInfo]
-    state: str
-    volume: int
-    track: TrackInfo = TrackInfo()
 
 
 class HealthResponse(BaseModel):

@@ -2,7 +2,7 @@ import asyncio
 
 from fastapi import APIRouter, Request
 
-from sonos_api.models.state import PlayerState, TrackInfo, ZoneInfo, MemberInfo
+from sonos_api.models.state import PlayerState, TrackInfo, ZoneInfo, MemberInfo, MemberState, GroupState
 from sonos_api.utils.retry import retry_soco
 
 router = APIRouter()
@@ -75,31 +75,40 @@ async def get_zones(request: Request):
     zones = []
     for group in groups:
         coordinator = group.coordinator
-        coord_name = await asyncio.to_thread(lambda c=coordinator: c.player_name)
+
+        # Fetch group-level state (shared by all members)
+        try:
+            playback_state = await _get_transport_state(coordinator)
+            current_track = await _get_track_info(coordinator)
+            group_volume = await asyncio.to_thread(lambda g=group: g.volume)
+            group_mute = await asyncio.to_thread(lambda g=group: g.mute)
+        except Exception:
+            playback_state = "UNKNOWN"
+            current_track = TrackInfo()
+            group_volume = 0
+            group_mute = False
+
+        group_state = GroupState(volume=group_volume, mute=group_mute)
 
         members = []
         for member in group.members:
             member_name = await asyncio.to_thread(lambda m=member: m.player_name)
-            members.append(MemberInfo(room=member_name, uuid=member.uid))
+            member_volume = await asyncio.to_thread(lambda m=member: m.volume)
+            member_mute = await asyncio.to_thread(lambda m=member: m.mute)
+            members.append(MemberInfo(
+                uuid=member.uid,
+                roomName=member_name,
+                coordinator=coordinator.uid,
+                state=MemberState(
+                    volume=member_volume,
+                    mute=member_mute,
+                    playbackState=playback_state,
+                    currentTrack=current_track,
+                ),
+                groupState=group_state,
+            ))
 
-        try:
-            transport_state = await _get_transport_state(coordinator)
-            volume = await asyncio.to_thread(lambda c=coordinator: c.volume)
-            track = await _get_track_info(coordinator)
-        except Exception:
-            transport_state = "UNKNOWN"
-            volume = 0
-            track = TrackInfo()
-
-        zones.append(
-            ZoneInfo(
-                coordinator=coord_name,
-                uuid=coordinator.uid,
-                members=members,
-                state=transport_state,
-                volume=volume,
-                track=track,
-            )
-        )
+        coord_member = next(m for m in members if m.uuid == coordinator.uid)
+        zones.append(ZoneInfo(uuid=coordinator.uid, coordinator=coord_member, members=members))
 
     return zones
